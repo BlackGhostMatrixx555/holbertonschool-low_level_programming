@@ -45,12 +45,13 @@ static void print_float(va_list *args)
  */
 static void print_str(va_list *args)
 {
-	char *s = va_arg(*args, char *);
-	char *nil = "(nil)";
+	const char *s = va_arg(*args, char *);
+	const char *nil = "(nil)";
+	const char *ptrs[2];
 
-	if (s == NULL)
-		s = nil;
-	printf("%s", s);
+	ptrs[0] = nil;
+	ptrs[1] = s;
+	printf("%s", ptrs[s != NULL]);
 }
 
 /**
@@ -68,6 +69,7 @@ void print_all(const char * const format, ...)
 		{'s', print_str},
 		{0, NULL}
 	};
+	static const char * const sep[2] = {"", ", "};
 	va_list args;
 	unsigned int i;
 	unsigned int j;
@@ -83,8 +85,7 @@ void print_all(const char * const format, ...)
 		{
 			if (format[i] == table[j].spec)
 			{
-				if (!first)
-					printf(", ");
+				printf("%s", sep[!first]);
 				table[j].print(&args);
 				first = 0;
 			}
