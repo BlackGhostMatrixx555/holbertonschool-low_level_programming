@@ -3,17 +3,6 @@
 #include "variadic_functions.h"
 
 /**
- * struct fmt_entry - maps a format character to a print function
- * @spec: the format character
- * @print: pointer to function that prints the corresponding va_arg value
- */
-typedef struct fmt_entry
-{
-	char spec;
-	void (*print)(va_list *);
-} fmt_t;
-
-/**
  * print_char - prints a char argument from va_list
  * @args: pointer to va_list
  */
