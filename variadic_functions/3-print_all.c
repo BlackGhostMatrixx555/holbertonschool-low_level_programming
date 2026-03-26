@@ -1,66 +1,97 @@
-#include "variadic_functions.h"
-#include <stdarg.h>
 #include <stdio.h>
+#include "variadic_functions.h"
 
-void print_char(va_list ap)
+/**
+ * struct fmt_entry - maps a format character to a print function
+ * @spec: the format character
+ * @print: pointer to function that prints the corresponding va_arg value
+ */
+typedef struct fmt_entry
 {
-	char c = (char)va_arg(ap, int); /* char promu en int */
-	printf("%c", c);
+	char spec;
+	void (*print)(va_list *);
+} fmt_t;
+
+/**
+ * print_char - prints a char argument from va_list
+ * @args: pointer to va_list
+ */
+static void print_char(va_list *args)
+{
+	printf("%c", va_arg(*args, int));
 }
 
-void print_int(va_list ap)
+/**
+ * print_int - prints an int argument from va_list
+ * @args: pointer to va_list
+ */
+static void print_int(va_list *args)
 {
-	printf("%d", va_arg(ap, int));
+	printf("%d", va_arg(*args, int));
 }
 
-void print_float(va_list ap)
+/**
+ * print_float - prints a float argument from va_list
+ * @args: pointer to va_list
+ */
+static void print_float(va_list *args)
 {
-	printf("%f", va_arg(ap, double)); /* float promu en double */
+	printf("%f", va_arg(*args, double));
 }
 
-void print_string(va_list ap)
+/**
+ * print_str - prints a string argument from va_list, or (nil) if NULL
+ * @args: pointer to va_list
+ */
+static void print_str(va_list *args)
 {
-	char *s = va_arg(ap, char *);
+	char *s = va_arg(*args, char *);
+	char *nil = "(nil)";
+
 	if (s == NULL)
-		printf("(nil)");
-	else
-		printf("%s", s);
+		s = nil;
+	printf("%s", s);
 }
 
+/**
+ * print_all - prints anything based on a format string
+ * @format: list of types: 'c'=char, 'i'=int, 'f'=float, 's'=char *
+ *          any other character is ignored
+ * @...: arguments to print
+ */
 void print_all(const char * const format, ...)
 {
-	va_list ap;
-	int i = 0, j;
-	char *sep = "";
-	/* tableau d'associations : symbole -> fonction */
-	printer_t funcs[] = {
-		{"c", print_char},
-		{"i", print_int},
-		{"f", print_float},
-		{"s", print_string},
-		{NULL, NULL}
+	static const fmt_t table[] = {
+		{'c', print_char},
+		{'i', print_int},
+		{'f', print_float},
+		{'s', print_str},
+		{0, NULL}
 	};
+	va_list args;
+	unsigned int i;
+	unsigned int j;
+	int first;
 
-	va_start(ap, format);
-	if (format)
+	va_start(args, format);
+	i = 0;
+	first = 1;
+	while (format && format[i])
 	{
-		while (format[i])
+		j = 0;
+		while (table[j].print)
 		{
-			j = 0;
-			while (funcs[j].symbol)
+			if (format[i] == table[j].spec)
 			{
-				if (format[i] == *(funcs[j].symbol))
-				{
-					printf("%s", sep);
-					funcs[j].print(ap);
-					sep = ", ";
-					break;
-				}
-				j++;
+				if (!first)
+					printf(", ");
+				table[j].print(&args);
+				first = 0;
 			}
-			i++;
+			j++;
 		}
+		i++;
 	}
-	va_end(ap);
+	va_end(args);
 	printf("\n");
 }
