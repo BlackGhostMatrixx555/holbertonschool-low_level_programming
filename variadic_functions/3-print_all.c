@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include "variadic_functions.h"
 
 /**
@@ -46,12 +47,9 @@ static void print_float(va_list *args)
 static void print_str(va_list *args)
 {
 	const char *s = va_arg(*args, char *);
-	const char *nil = "(nil)";
-	const char *ptrs[2];
-
-	ptrs[0] = nil;
-	ptrs[1] = s;
-	printf("%s", ptrs[s != NULL]);
+	if (s == NULL)
+		s = "(nil)";
+	printf("%s", s);
 }
 
 /**
@@ -69,15 +67,12 @@ void print_all(const char * const format, ...)
 		{'s', print_str},
 		{0, NULL}
 	};
-	static const char * const sep[2] = {"", ", "};
 	va_list args;
-	unsigned int i;
-	unsigned int j;
-	int first;
+	unsigned int i, j;
+	int first = 1;
 
 	va_start(args, format);
 	i = 0;
-	first = 1;
 	while (format && format[i])
 	{
 		j = 0;
@@ -85,9 +80,11 @@ void print_all(const char * const format, ...)
 		{
 			if (format[i] == table[j].spec)
 			{
-				printf("%s", sep[!first]);
+				if (!first)
+					printf(", ");
 				table[j].print(&args);
 				first = 0;
+				break;
 			}
 			j++;
 		}
