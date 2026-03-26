@@ -47,6 +47,7 @@ static void print_float(va_list *args)
 static void print_str(va_list *args)
 {
 	const char *s = va_arg(*args, char *);
+
 	if (s == NULL)
 		s = "(nil)";
 	printf("%s", s);
@@ -76,17 +77,14 @@ void print_all(const char * const format, ...)
 	while (format && format[i])
 	{
 		j = 0;
-		while (table[j].print)
-		{
-			if (format[i] == table[j].spec)
-			{
-				if (!first)
-					printf(", ");
-				table[j].print(&args);
-				first = 0;
-				break;
-			}
+		while (table[j].print && format[i] != table[j].spec)
 			j++;
+
+		if (table[j].print)
+		{
+			printf("%s", first ? "" : ", ");
+			table[j].print(&args);
+			first = 0;
 		}
 		i++;
 	}
