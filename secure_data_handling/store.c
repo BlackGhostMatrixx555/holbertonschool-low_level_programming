@@ -34,27 +34,49 @@ static node_t *node_create(session_t *s)
  * @st: target store
  * @s: session to insert (must have a non-NULL id)
  *
- * Return: 1 on success, 0 if duplicate id or on error
+ * Return: 1 on success, 0 on failure
+ *
+ * Ownership: store_add always takes ownership of @s.
+ * If insertion fails (duplicate id or allocation error), @s is destroyed
+ * inside this function so the caller never leaks it.
+ *
+ * Bug fixed:
+ *   - When store_add returned 0 (duplicate), the caller (main.c cmd_add)
+ *     printed "NO" and returned without freeing the session it had just
+ *     created. Since main.c cannot be modified, the fix is to have store_add
+ *     call session_destroy(s) before returning 0, enforcing a clear
+ *     "callee always owns s" contract.
  */
 int store_add(store_t *st, session_t *s)
 {
 	node_t *n, *cur;
 
 	if (!st || !s || !s->id)
+	{
+		session_destroy(s);
 		return (0);
+	}
 
 	cur = st->head;
 	while (cur)
 	{
 		if (cur->sess && cur->sess->id &&
 			strcmp(cur->sess->id, s->id) == 0)
+		{
+			/* BUG FIX 5: duplicate -> destroy the rejected session so the
+			 * caller (cmd_add in main.c) does not leak it. */
+			session_destroy(s);
 			return (0);
+		}
 		cur = cur->next;
 	}
 
 	n = node_create(s);
 	if (!n)
+	{
+		session_destroy(s);
 		return (0);
+	}
 
 	n->next = st->head;
 	st->head = n;
@@ -90,20 +112,14 @@ session_t *store_get(store_t *st, const char *id)
  * store_delete - Removes and destroys a session by id
  * @st: store to delete from
  * @id: session id to remove
- * @out: if non-NULL, receives the session pointer BEFORE destruction
- *       (caller must not dereference it: it is freed inside this function)
+ * @out: always set to NULL (session is destroyed inside this function)
  *
  * Return: 1 if deleted, 0 if not found
  *
  * Bug fixed:
- *   - When out != NULL the old code wrote *out = cur->sess and then called
- *     session_destroy(cur->sess), handing the caller a dangling pointer.
- *     The CLI always passes NULL for out so it never crashed in practice,
- *     but the contract was broken and any caller using *out would trigger
- *     use-after-free.
- *     Fix: session_destroy is called unconditionally; if the caller asked
- *     for *out we set it to NULL to make the dangling-pointer bug obvious
- *     instead of silent.
+ *   - The old code wrote *out = cur->sess then called session_destroy(),
+ *     handing the caller a dangling pointer. session_destroy is now called
+ *     unconditionally and *out is set to NULL.
  */
 int store_delete(store_t *st, const char *id, session_t **out)
 {
@@ -125,8 +141,6 @@ int store_delete(store_t *st, const char *id, session_t **out)
 			else
 				st->head = cur->next;
 
-			/* BUG FIX 4: destroy first, then nullify *out so the caller
-			 * cannot accidentally use a dangling pointer. */
 			session_destroy(cur->sess);
 			if (out)
 				*out = NULL;
